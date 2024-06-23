@@ -1,11 +1,1 @@
-
-This project concerns the 2023 Alibaba clusterdata, obtainable here. The dataset consists of 8152 tasks submitted to the GPU cluster of Alibaba’s Cloud center. The tasks are specified by the requested resources, in number of CPUs, number of GPUs, and amount of memory. Further specifications are Quality of Service, specific GPUs requested, pod phase (specified as Succeeded, Running, Pending, Failed), and creation/deletion/scheduled times. From this data, six six time series were obtained: overall CPU, overall GPU, and overall memory usage for a given time step, as well as the CPU, GPU, and memory requirements of pods that started at that time step (figure 1). Each time step is a millisecond starting from Jan 1st 2023.
-A significant change in workload and frequency of newly arriving pods is observable after day 115. Therefore, for the time series prediction task, introduced in the next section, only the data after the 115th day was used. This data was collected into intervals of 2 minutes, and a moving average was calculated using a window of 15 days for both the collective and the newly scheduled requirements (figure 2).
-Fig. 1 – Overall workload of GPU and CPU per 2 minute intervals.
-  1
-  Fig. 2 – Moving average workflow of a 15 time-step window
- Fig. 3 – Moving average of a newly scheduled gpu 2
- 
- 2 PROBLEM DESCRIPTION
-The task is to predict the (moving average of the) workflow using time series analysis via recurrent neural networks (RNNs). The workload depends on two factors: The time it needs to process one pod, and the addition of new pods into the workload. The addition of new pods should follow randomly, because it depends on user’s submissions. Yet it is surprisingly periodical, as can be seen from figure 3. In general, however, the number of newly arriving pods contains a random element and it is therefore not easily predictable using RNNs alone — which means that not too good results should be expected.
-The time series values of overall workload of CPU, GPU, and memory of a number of past time steps ti−n, . . . ti in a given window n will be combined with data of newly issued CPU, GPU, and memory at time ti+1 to predict the new overall workflow of CPU, GPU, and memory at ti+1. Insofar as the request of new resources follows a brownian motion, adding these as explicit information should help the RNN to discern more periodicity (insofar as—and that is the hypothesis—duration of pods is determined by requested CPU, GPU, and memory allocation.
+For information, see 
