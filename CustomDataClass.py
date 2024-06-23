@@ -8,21 +8,9 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
 
 
-#for timeseries predictions: 
-def dataset_for_time_series(dataset, lookback):
-    X, y = [], []
-    for i in range(len(dataset)-lookback):
-        feature = dataset[i:i+lookback]
-        target = dataset[i+lookback:i+lookback+1]
-        X.append(feature)
-        y.append(target)
-    return np.array(X), np.array(y)
-
-
-def merge_dfs(df_1,df_2):
-    merged_df = pd.concat([df_1, df_2], axis=0, ignore_index=True)
-    shuffled_df = merged_df.sample(frac=1).reset_index(drop=True)
-    return shuffled_df
+########################################
+#The basic Data Class and Module
+########################################
 
 class Data(Dataset):
     def __init__(self, X, y):
@@ -37,7 +25,6 @@ class Data(Dataset):
         return self.len
 
 class DataModule: 
-    """The base class of data."""
     def __init__(self, X,y):
         self.dataset = Data(X,y)
 
@@ -48,34 +35,50 @@ class DataModule:
         return self.get_dataloader(batch_size)
 
     def val_dataloader(self, batch_size):
-        #here say something about gradients not required ? 
+    """This can be specified further to not require gradients"""
         return self.get_dataloader(batch_size)
 
+
+########################################
+#Auxiliary Functions
+#######################################
+
+def dataset_for_time_series(dataset, lookback):
+    """Create time series data with specified lookback window"""
+    X, y = [], []
+    for i in range(len(dataset)-lookback):
+        feature = dataset[i:i+lookback]
+        target = dataset[i+lookback:i+lookback+1]
+        X.append(feature)
+        y.append(target)
+    return np.array(X), np.array(y)
+
 def custom_timestamp_to_datetime(timestamp):
+    """Convert the custom timestamp to a datetime object"""
     if np.isnan(timestamp) != True:
         custom_epoch = datetime(2023, 1, 1, 0, 0, 0)
-        # Convert the custom timestamp to datetime object
         return custom_epoch + timedelta(seconds=timestamp)
     else: 
         return pd.NaT
 
-def custom_datetime_to_timestep2(datetimeob):
+def custom_datetime_to_timestep_2(datetimeob):
+    """Alternative function to produce 30 second time intervalls"""
     if type(datetimeob) != type(pd.NaT):
         if datetimeob.second > 30: 
             datetimeob2 = datetimeob.replace(second=30, microsecond=0)
         else: 
             datetimeob2 = datetimeob.replace(second=0, microsecond=0)
-        # Convert the custom timestamp to datetime object
         number = datetimeob2.timestamp() // 30
         return number
     else: 
         return pd.NaT
 
 def custom_datetime_to_timestep(datetimeob):
+    """Convert the datetime object to timesteps again for further processing"""
     if type(datetimeob) != type(pd.NaT):
-        replace_value = (datetimeob.minute // 5  ) * 5
+        replace_value = (datetimeob.minute // 2  ) * 2
         datetimeob2 = datetimeob.replace(minute = replace_value, second=0, microsecond=0)
-        number = datetimeob2.timestamp() // (60 * 5)
+        number = datetimeob2.timestamp() // (60 * 2)
         return number
     else: 
         return pd.NaT
@@ -86,12 +89,10 @@ def moving_average(data, window_size):
     return moving_avg
 
 
-#this works only because every timestep has a workload
 def calc_workload_per_timestep(workload_type):
+    """Return a workload dictionary with keys = timesteps, and values = workload vector"""
     start_time = time.time()
-   
-   #initialise workload dictionary with key= timestep, value= vector of current and new workload
-    workload_dict = {}
+    workload_dict = {} 
     for item in workload_type:
         key_for_new_res = 'new_' + item
         workload_dict[item] = {}
@@ -106,37 +107,36 @@ def calc_workload_per_timestep(workload_type):
                 workload_dict[key_for_new_res][beginning] = workload_dict[key_for_new_res].get(beginning, 0) + row[key]
                 for timestep in range(beginning, beginning + duration):
                     workload_dict[key][timestep] = workload_dict[key].get(timestep, 0) + row[key]
-   
-    mediate_time = time.time()
-    print(mediate_time - start_time)
     
     for i in range(len(workload_dict['gpu_milli'])):
         for key in workload_dict.keys():
             if 'new' in key:
                    workload_dict[key][i] = workload_dict[key].get(i,0)  
 
-    end_time = time.time()
-    computing_time = end_time - mediate_time
-    print(computing_time)
-
     return workload_dict
 
+
+
+##############################################
+#Create the Dataset of time series prediciton
+##############################################
 
 if __name__ == '__main__': 
 
     df = pd.read_csv('~/Alibaba Programs/openb_pod_list_default.csv')
-                     
+    
+    """Choose range of dates and convert to datetime objects"""
     df['creation_time'] = df['creation_time'].apply(custom_timestamp_to_datetime)
     df = df[df['creation_time'].dt.dayofyear > 115]
     df['deletion_time'] = df['deletion_time'].apply(custom_timestamp_to_datetime)
     df['scheduled_time'] = df['scheduled_time'].apply(custom_timestamp_to_datetime)
     
-    #prepare data for choosen interval
+    """Prepare data for choosen interval"""
     df['creation_time'] = df['creation_time'].apply(custom_datetime_to_timestep)
     df['deletion_time'] = df['deletion_time'].apply(custom_datetime_to_timestep)
     df['scheduled_time'] = df['scheduled_time'].apply(custom_datetime_to_timestep)
 
-    #set starting point to 1
+    """Set starting point to 1"""
     norm = df['creation_time'].iloc[0] - 1
     df['creation_time'] = df['creation_time'] - norm 
     df['deletion_time'] = df['deletion_time']  - norm
@@ -149,25 +149,23 @@ if __name__ == '__main__':
     
     workload_dataframe = pd.DataFrame(workload_dict)
     
-    end_time = time.time()
-
-    window_avg = 15 
+    window_avg = 10 
     workload_dataframe['avg_cpu'] = moving_average(workload_dataframe.cpu_milli, window_avg)
     workload_dataframe['avg_gpu'] = moving_average(workload_dataframe.gpu_milli, window_avg)
     workload_dataframe['avg_memory'] = moving_average(workload_dataframe.memory_mib, window_avg)
     
-    window_avg = 15
+    window_avg = 10
     workload_dataframe['avg_new_cpu'] = moving_average(workload_dataframe.new_cpu_milli, window_avg)
     workload_dataframe['avg_new_gpu'] = moving_average(workload_dataframe.new_gpu_milli, window_avg)
     workload_dataframe['avg_new_memory'] = moving_average(workload_dataframe.new_memory_mib, window_avg)
 
-    workload_dataframe.to_csv('~/Datasets/Alibaba_workload_data.csv', index=False)
+    workload_dataframe.to_csv('alibaba_workload_data.csv', index=False)
 
     x_axis= range(len(workload_dataframe))
     plt.figure(figsize=(10, 6))
     plt.plot(x_axis, workload_dataframe['avg_new_cpu'], color='red', label='avg_new_cpu' , linestyle='-')
     plt.plot(x_axis, workload_dataframe['new_cpu_milli'], color='cyan', label='new_cpu_workload' , linestyle='-', alpha = 0.3)
-    plt.title('New CPU Plot')
+    plt.title('CPU Plot')
     plt.xlabel('Date')
     plt.ylabel('Value')
     plt.legend()
@@ -176,7 +174,7 @@ if __name__ == '__main__':
     plt.figure(figsize=(10,6))
     plt.plot(x_axis,  workload_dataframe['avg_new_gpu'], color='red', label='avg_new_gpu' , linestyle='-')
     plt.plot(x_axis,  workload_dataframe['new_gpu_milli'], color='blue', label='new_gpu_workload' , linestyle='-', alpha = 0.3)
-    plt.title('New GPU Plot')
+    plt.title('GPU Plot')
     plt.xlabel('Date')
     plt.ylabel('Value')
     plt.legend()
@@ -185,7 +183,7 @@ if __name__ == '__main__':
     plt.figure(figsize=(10,6))
     plt.plot(x_axis,  workload_dataframe['new_memory_mib'], color='purple', label='new_memory_workload' , linestyle='-', alpha = 0.3)
     plt.plot(x_axis,  workload_dataframe['avg_new_memory'], color='red', label='avg_new_mib' , linestyle='-')
-    plt.title('New Memory Plot')
+    plt.title('Memory Plot')
     plt.xlabel('Date')
     plt.ylabel('Value')
     plt.legend()
@@ -217,9 +215,12 @@ if __name__ == '__main__':
     plt.ylabel('Value')
     plt.legend()
     plt.grid(True)
-    #plt.show()
+    plt.show()
 
 
+"""Print Summary Statistics if required"""
+
+'''
     ####################################
     #Summary Statistics
     ####################################
@@ -230,8 +231,6 @@ if __name__ == '__main__':
     num_of_gpu_per_minute = {}
     memory_mib_per_minute = {}
 
-    df['creation_time'] = df['creation_time'].apply(custom_timestamp_to_datetime)
-    
     for index, row in df.iterrows():
         item = row['creation_time']
         workload = row['gpu_milli']
@@ -291,8 +290,8 @@ if __name__ == '__main__':
     #Average stats per hour
     ############################
 
-    df['minute'] = df.creation_time.dt.minute
-    df['hour'] = df.creation_time.dt.hour
+    df['minute'] = df.index.minute
+    df['hour'] = df.index.hour
     df['num_gpu'] = df['num_gpu'].fillna(0)
     hourly_num_gpu_stats = df.groupby('hour')['num_gpu'].agg(['mean', 'std'])
     minutly_num_gpu_stats = df.groupby('minute')['num_gpu'].agg(['mean', 'std'])
@@ -315,5 +314,7 @@ if __name__ == '__main__':
     plt.title('Average Value with Standard Deviation by Hour')
     plt.grid(True)
     plt.show()
+'''
+
 
 

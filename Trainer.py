@@ -154,7 +154,7 @@ class Trainer:
                 y_hat = model(X, additional)  # Choose the class with highest probability
                 y_total = torch.cat((y_total,y[:,-1,0:3]), dim=0)
                 y_hat_total = torch.cat((y_hat_total,y_hat), dim=0)
-                loss = model.loss(y_hat, y[:,-1,0:3])
+                loss = model.metric(y_hat, y[:,-1,0:3])
                 self.test_loss += loss * X.size(0)
         self.test_loss /= len(self.test_dataloader.dataset)
 
@@ -176,14 +176,15 @@ class Trainer:
         learning_r = trial.suggest_float("learning_rate", 1e-6, 1e-2)
         batch_size = trial.suggest_categorical("batch_size", [32,128,256])
         hidden_size = trial.suggest_categorical('hidden_size',[32,64,128])
+        hidden_size_2 = trial.suggest_categorical('hidden_size_2',[8,32,64])
         l2_rate = trial.suggest_categorical('l2_rate', [0.0,0.0001,0.005])
         loss_function = trial.suggest_categorical('loss', ['MSE','Huber'])
         window_size = trial.suggest_categorical('window_size', [10,15,20])
         gradient_clip = trial.suggest_categorical('gradient_clip', [0.0,1.0])
         scheduler = trial.suggest_categorical('scheduler', [None, 'OnPlateau'])
-        num_layers = trial.suggest_categorical('num_layers', [1,2])
+        num_layers = trial.suggest_categorical('num_layers', [1])
 
-        model = EncoderDecoder(input_size, hidden_size, output_size, num_layers, learning_rate = learning_r, loss_function = loss_function, clip_val = gradient_clip, scheduler = scheduler)
+        model = EncoderDecoderMaster(input_size, hidden_size, 3, hidden_size_2, output_size, num_layers, learning_rate = learning_r, loss_function = loss_function, clip_val = gradient_clip, scheduler = scheduler)
         trainer = cls(30,  batch_size, window_size = window_size)
         trainer.fit(model, workload_data)
 
@@ -193,7 +194,7 @@ class Trainer:
     def hyperparameter_optimization(cls, workload_data, input_size,output_size):
         study = optuna.create_study(direction='minimize')
         objective_func = lambda trial: cls.Optuna_objective(trial, workload_data, input_size, output_size)
-        study.optimize(objective_func, n_trials=30)
+        study.optimize(objective_func, n_trials=15)
 
         best_trial = study.best_trial
         best_params = best_trial.params
