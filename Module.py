@@ -26,8 +26,7 @@ class EncoderDecoderMaster(nn.Module):
     """The base class of models."""
     def __init__(self, input_size, hidden_size, concat_size, hidden_size_2, output_size, num_layers = 1, optimizer = 'SGD', learning_rate = 0.001, loss_function = 'MSE', l1 = 0.0, l2 = 0.0, clip_val=0, scheduler = None):
         super(EncoderDecoderMaster, self).__init__()
-
-
+        
         self.output_size = output_size
         self.hidden_size = hidden_size
         self.attention = Attention(self.hidden_size)
@@ -41,7 +40,6 @@ class EncoderDecoderMaster(nn.Module):
 
         self.linear = nn.Linear(hidden_size + hidden_size , hidden_size)
 
-
         #Additional vector to concatenate
         self.fc_concat = nn.Linear(concat_size, hidden_size_2)
         self.initialize_weights(self.fc_concat, 'He', 0)
@@ -52,17 +50,19 @@ class EncoderDecoderMaster(nn.Module):
         self.learning_rate = learning_rate
         self.l1_rate = l1
         self.l2_rate = l2
+        if clip_val != 0: 
+            self.clip_gradients(clip_val)
 
         self.optimizer = self.get_optimizer(optimizer, self.learning_rate, self.l2_rate)
         self.loss = self.get_loss(loss_function)
         self.metric = self.get_metric()
-        self.clip_val = clip_val
         self.scheduler = self.get_scheduler(scheduler, self.optimizer)
         
         self.activation = nn.PReLU()  
 
-
     def forward(self, x, additional):
+
+        # Encoder
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
 
@@ -80,9 +80,12 @@ class EncoderDecoderMaster(nn.Module):
             
             decoder_output, (decoder_hidden, decoder_cell) = self.decoder(decoder_input.unsqueeze(1), (decoder_hidden, decoder_cell))
             decoder_input = decoder_output[:,-1,:]
+            
         final_hidden_state = decoder_hidden[-1]
+        
         # Apply linear transformation to additional vector
         additional_transformed = self.activation(self.fc_concat(additional))
+        
         # Concatenate LSTM output and additional vector
         concatenated = torch.cat((final_hidden_state, additional_transformed), dim=1)
         
@@ -128,7 +131,6 @@ class EncoderDecoderMaster(nn.Module):
 
     def initialize_weights(self, layer_init = None, initialisation = 'Normal', bias = 0):
         init_methods = {'Xavier': self.xavier_init, 'Uniform': self.uniform_init, 'Normal': self.normal_init, 'He': self.he_init}
-
 
         self._init_weights = init_methods[initialisation]
 
