@@ -214,69 +214,23 @@ x_values = range(len(y_0))
 plt.figure()
 plt.plot(x_values, y_0, color='blue', label='Test Data' , linestyle='-')
 plt.plot(x_values, y_hat_0, color='green', label='Prediction' , linestyle='-')
-#plt.plot(x_values, y_0[:-1], color='orange', label='Same value again' , linestyle='-')
+#plt.plot(x_values, y_0[:-1], color='orange', label='Same Value Again' , linestyle='-')
 plt.title("Avg CPU")
 plt.legend()
 
 plt.figure()
 plt.plot(x_values, y_1, color='red', label='Test Data' , linestyle='-')
 plt.plot(x_values, y_hat_1, color='green', label='Prediction' , linestyle='-')
-#plt.plot(x_values, y_1[:-1], color='yellow', label='Same value again' , linestyle='-')
+#plt.plot(x_values, y_1[:-1], color='yellow', label='Same Value Again' , linestyle='-')
 plt.title("Avg GPU")
 plt.legend()
 
 plt.figure()
 plt.plot(x_values, y_2, color='cyan', label='Test Data' , linestyle='-')
 plt.plot(x_values, y_hat_2, color='green', label='Prediction' , linestyle='-')
-#plt.plot(x_values, y_2[:-1], color='orange', label='Same value again' , linestyle='-')
+#plt.plot(x_values, y_2[:-1], color='orange', label='Same Value Again' , linestyle='-')
 plt.title("Avg Memory")
 plt.legend()
 
 plt.show()
 
-'''
-##################################
-#do some iterated predicitons
-##################################
-
-
-iteratedm_data = iter(test_data)
-first_batch , _ = next(iteratedm_data)
-start = first_batch[0,:,:].unsqueeze(0)
-edm_predictions = start[0,:,0:3].squeeze(0)
-y = torch.cat((edm_predictions, y), dim=0).detach().numpy()
-y_0 = y[:,0]
-y_1 = y[:,1]
-y_2 = y[:,2]
-
-edm_model.eval()
-for i in range(test_data.dataset.len):
-    next_prediction = edm_model(start)
-    edm_predictions = torch.cat((edm_predictions,next_prediction),dim=0)
-    start = torch.cat((start,next_prediction.unsqueeze(0)),dim=1)[:,1:,:]
-
-p_0 = edm_predictions[:,0].detach().numpy()
-p_1 = edm_predictions[:,1].detach().numpy()
-p_2 = edm_predictions[:,2].detach().numpy()
-
-x_values = range(len(y_0))
-
-plt.figure()
-plt.plot(x_values, y_0, color='blue', label='test_data' , linestyle='-')
-plt.plot(x_values, p_0, color='green', label='prediction' , linestyle='-')
-plt.title("Iterated Predictions CPU")
-plt.legend()
-
-plt.figure()
-plt.plot(x_values, y_1, color='red', label='test_data' , linestyle='-')
-plt.plot(x_values, p_1, color='green', label='prediction' , linestyle='-')
-plt.title("Iterated Predictions GPU")
-plt.legend()
-
-plt.figure()
-plt.plot(x_values, y_2, color='cyan', label='test_data' , linestyle='-')
-plt.plot(x_values, p_2, color='green', label='prediction' , linestyle='-')
-plt.title("Iterated Predictions Memory")
-plt.legend()
-plt.show()
-'''
